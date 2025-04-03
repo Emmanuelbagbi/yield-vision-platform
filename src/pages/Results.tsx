@@ -1,361 +1,347 @@
 
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import React, { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { AlertCircle, AlertTriangle, ArrowLeft, Download, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, LineChart, Line } from "recharts";
 
-interface PredictionData {
-  cropType: string;
-  soilPh: number;
-  soilMoisture: number;
-  nitrogenLevel: number;
-  phosphorusLevel: number;
-  potassiumLevel: number;
-  organicMatter: number;
-  rainfall: number;
-  humidity: number;
-  sunshineHours: number;
-  [key: string]: any;
-}
+const dummyDataCurrent = [
+  {
+    crop: "Corn",
+    predictedYield: 8.2,
+    actualYield: 7.9,
+    confidenceScore: 92,
+    date: "2024-03-15",
+  },
+  {
+    crop: "Wheat",
+    predictedYield: 4.5,
+    actualYield: 4.3,
+    confidenceScore: 88,
+    date: "2024-03-10",
+  },
+  {
+    crop: "Soybeans",
+    predictedYield: 3.7,
+    actualYield: 3.8,
+    confidenceScore: 85,
+    date: "2024-03-05",
+  },
+];
 
-interface PredictionResult {
-  yield: number;
-  confidence: number;
-  timestamp: string;
-}
+const dummyDataHistorical = [
+  {
+    crop: "Corn",
+    predictedYield: 7.7,
+    actualYield: 7.5,
+    confidenceScore: 89,
+    date: "2023-09-20",
+  },
+  {
+    crop: "Wheat",
+    predictedYield: 4.1,
+    actualYield: 4.0,
+    confidenceScore: 92,
+    date: "2023-08-15",
+  },
+  {
+    crop: "Soybeans",
+    predictedYield: 3.5,
+    actualYield: 3.4,
+    confidenceScore: 87,
+    date: "2023-08-10",
+  },
+  {
+    crop: "Corn",
+    predictedYield: 7.4,
+    actualYield: 7.3,
+    confidenceScore: 90,
+    date: "2023-03-25",
+  },
+  {
+    crop: "Wheat",
+    predictedYield: 3.9,
+    actualYield: 3.7,
+    confidenceScore: 88,
+    date: "2023-03-12",
+  },
+];
+
+const explanationFactors = [
+  {
+    factor: "Soil pH",
+    impact: 25,
+    explanation: "Slightly alkaline soil pH (7.2) is optimal for corn growth",
+    color: "#8884d8",
+  },
+  {
+    factor: "Nitrogen Level",
+    impact: 35,
+    explanation: "High nitrogen level promotes robust vegetative growth",
+    color: "#82ca9d",
+  },
+  {
+    factor: "Rainfall",
+    impact: 20,
+    explanation: "Adequate rainfall distribution throughout the growing season",
+    color: "#ffc658",
+  },
+  {
+    factor: "Temperature",
+    impact: 15,
+    explanation: "Optimal temperature range during key growth stages",
+    color: "#ff8042",
+  },
+  {
+    factor: "Pest Management",
+    impact: 5,
+    explanation: "Effective pest control reduced crop damage",
+    color: "#0088FE",
+  },
+];
+
+const yieldTrendData = [
+  { name: "Jan", yield: 2.4 },
+  { name: "Feb", yield: 2.7 },
+  { name: "Mar", yield: 3.2 },
+  { name: "Apr", yield: 3.8 },
+  { name: "May", yield: 4.5 },
+  { name: "Jun", yield: 5.2 },
+  { name: "Jul", yield: 5.8 },
+  { name: "Aug", yield: 6.5 },
+  { name: "Sep", yield: 7.1 },
+  { name: "Oct", yield: 7.8 },
+  { name: "Nov", yield: 0 },
+  { name: "Dec", yield: 0 },
+];
+
+const ResultsTable = ({ data }: { data: typeof dummyDataCurrent }) => {
+  return (
+    <div className="rounded-md border">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b bg-muted/50">
+            <th className="py-3 px-4 text-left font-medium">Crop</th>
+            <th className="py-3 px-4 text-left font-medium">Predicted Yield (tons/ha)</th>
+            <th className="py-3 px-4 text-left font-medium">Actual Yield (tons/ha)</th>
+            <th className="py-3 px-4 text-left font-medium">Confidence Score</th>
+            <th className="py-3 px-4 text-left font-medium">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, index) => (
+            <tr key={index} className={index % 2 ? "bg-muted/50" : "bg-background"}>
+              <td className="py-3 px-4">{row.crop}</td>
+              <td className="py-3 px-4">{row.predictedYield.toFixed(1)}</td>
+              <td className="py-3 px-4">{row.actualYield.toFixed(1)}</td>
+              <td className="py-3 px-4">{row.confidenceScore}%</td>
+              <td className="py-3 px-4">{row.date}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 const Results = () => {
-  const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
-  const [predictionData, setPredictionData] = useState<PredictionData | null>(null);
-  const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedTab, setSelectedTab] = useState("current");
 
-  useEffect(() => {
-    // Retrieve prediction data from localStorage
-    const storedData = localStorage.getItem("predictionData");
-    const storedResult = localStorage.getItem("predictionResult");
-    
-    if (storedData && storedResult) {
-      setPredictionData(JSON.parse(storedData));
-      setPredictionResult(JSON.parse(storedResult));
+  const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#0088FE"];
+
+  // Custom tooltip for the bar chart that handles valueType properly
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      // Make sure to check the type before using toFixed
+      const valueFormatted = typeof payload[0].value === 'number' ? 
+        payload[0].value.toFixed(2) : 
+        payload[0].value.toString();
+        
+      return (
+        <div className="bg-background p-2 border rounded shadow-sm">
+          <p className="font-medium">{`${label}`}</p>
+          <p>{`${payload[0].name}: ${valueFormatted}`}</p>
+        </div>
+      );
     }
-    
-    setLoading(false);
-  }, []);
-
-  if (!isAuthenticated) {
-    return (
-      <div className="container py-8">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Please log in to view prediction results.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="container py-8">
-        <div className="flex justify-center">
-          <p>Loading results...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!predictionData || !predictionResult) {
-    return (
-      <div className="container py-8">
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            No prediction data found. Please make a prediction first.
-          </AlertDescription>
-        </Alert>
-        <div className="mt-4 flex justify-center">
-          <Button onClick={() => navigate("/predict")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Go to Prediction Page
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Format date
-  const resultDate = new Date(predictionResult.timestamp);
-  const formattedDate = new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(resultDate);
-
-  // Generate impact factors data for visualization
-  const getImpactLevel = (value: number, optimal: number, range: number) => {
-    const difference = Math.abs(value - optimal);
-    return Math.max(0, 100 - (difference / range) * 100);
-  };
-
-  const impactFactorsData = [
-    {
-      factor: "Soil pH",
-      impact: getImpactLevel(predictionData.soilPh, 6.5, 2),
-      value: predictionData.soilPh,
-      optimal: "6.5-7.0"
-    },
-    {
-      factor: "Moisture",
-      impact: getImpactLevel(predictionData.soilMoisture, 35, 20),
-      value: `${predictionData.soilMoisture}%`,
-      optimal: "30-40%"
-    },
-    {
-      factor: "Nitrogen",
-      impact: getImpactLevel(predictionData.nitrogenLevel, 120, 60),
-      value: `${predictionData.nitrogenLevel} mg/kg`,
-      optimal: "100-140 mg/kg"
-    },
-    {
-      factor: "Phosphorus",
-      impact: getImpactLevel(predictionData.phosphorusLevel, 45, 25),
-      value: `${predictionData.phosphorusLevel} mg/kg`,
-      optimal: "35-55 mg/kg"
-    },
-    {
-      factor: "Potassium",
-      impact: getImpactLevel(predictionData.potassiumLevel, 80, 40),
-      value: `${predictionData.potassiumLevel} mg/kg`,
-      optimal: "70-90 mg/kg"
-    },
-    {
-      factor: "Organic Matter",
-      impact: getImpactLevel(predictionData.organicMatter, 3, 2),
-      value: `${predictionData.organicMatter}%`,
-      optimal: "3-5%"
-    },
-    {
-      factor: "Rainfall",
-      impact: getImpactLevel(predictionData.rainfall, 25, 15),
-      value: `${predictionData.rainfall} mm/month`,
-      optimal: "20-30 mm/month"
-    },
-  ];
-
-  const sortedImpactFactors = [...impactFactorsData].sort((a, b) => b.impact - a.impact);
-  const chartData = sortedImpactFactors.map(item => ({
-    factor: item.factor,
-    impact: item.impact
-  }));
-
-  const handleDownloadReport = () => {
-    toast.success("Report downloaded successfully");
-  };
-
-  const handleShare = () => {
-    toast.success("Results shared with team members");
-  };
-
-  const getYieldQuality = (yield_value: number) => {
-    if (yield_value >= 75) return "Excellent";
-    if (yield_value >= 60) return "Good";
-    if (yield_value >= 40) return "Average";
-    return "Below Average";
-  };
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 90) return "text-green-600";
-    if (confidence >= 80) return "text-yellow-600";
-    return "text-red-600";
+    return null;
   };
 
   return (
     <div className="container py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Prediction Results</h1>
-          <p className="text-muted-foreground">
-            Analysis and insights for your crop yield prediction
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate("/predict")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            New Prediction
-          </Button>
-          <Button onClick={handleDownloadReport}>
-            <Download className="mr-2 h-4 w-4" />
-            Download Report
-          </Button>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">Prediction Results</h1>
+        <p className="text-muted-foreground mt-2">
+          Review your crop yield prediction results and explanatory factors.
+        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main result card */}
-        <Card className="lg:col-span-1">
-          <CardHeader className="bg-primary/5 border-b">
-            <CardTitle className="text-2xl">{predictionData.cropType.charAt(0).toUpperCase() + predictionData.cropType.slice(1)} Yield Prediction</CardTitle>
-            <CardDescription>
-              {formattedDate}
-            </CardDescription>
+      <Tabs defaultValue="current" onValueChange={setSelectedTab} className="mb-8">
+        <TabsList>
+          <TabsTrigger value="current">Current Season</TabsTrigger>
+          <TabsTrigger value="historical">Historical Data</TabsTrigger>
+        </TabsList>
+        <TabsContent value="current">
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Current Season Predictions</CardTitle>
+              <CardDescription>Latest predictions for your crops with actual yields where available</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResultsTable data={dummyDataCurrent} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="historical">
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Historical Predictions</CardTitle>
+              <CardDescription>Previous predictions and their accuracy</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResultsTable data={dummyDataHistorical} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <div className="grid gap-8 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Prediction Accuracy</CardTitle>
+            <CardDescription>Comparing predicted vs actual yields</CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-center mb-6">
-              <div className="text-5xl font-bold text-primary">
-                {predictionResult.yield}
-                <span className="text-base font-normal text-muted-foreground ml-1">bu/acre</span>
-              </div>
-              <p className="text-lg font-medium mt-2">
-                {getYieldQuality(predictionResult.yield)} Yield Potential
-              </p>
-              <div className={`flex items-center justify-center mt-1 ${getConfidenceColor(predictionResult.confidence)}`}>
-                <span className="text-sm">Prediction Confidence: {predictionResult.confidence}%</span>
-              </div>
-            </div>
-
-            <Separator className="my-4" />
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Prediction Summary</p>
-              <p className="text-sm text-muted-foreground">
-                Based on the provided soil and environmental parameters, your {predictionData.cropType} crop is predicted to yield {predictionResult.yield} bushels per acre, which is {getYieldQuality(predictionResult.yield).toLowerCase()} for this crop type. This prediction has a confidence level of {predictionResult.confidence}%.
-              </p>
-            </div>
-
-            <div className="mt-6">
-              <p className="text-sm font-medium mb-2">Key Input Parameters</p>
-              <div className="grid grid-cols-2 gap-y-2 text-sm">
-                <div className="text-muted-foreground">Crop Type:</div>
-                <div className="font-medium">{predictionData.cropType.charAt(0).toUpperCase() + predictionData.cropType.slice(1)}</div>
-                
-                <div className="text-muted-foreground">Soil pH:</div>
-                <div className="font-medium">{predictionData.soilPh}</div>
-                
-                <div className="text-muted-foreground">Soil Moisture:</div>
-                <div className="font-medium">{predictionData.soilMoisture}%</div>
-                
-                <div className="text-muted-foreground">Nitrogen Level:</div>
-                <div className="font-medium">{predictionData.nitrogenLevel} mg/kg</div>
-              </div>
-            </div>
+          <CardContent className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={selectedTab === "current" ? dummyDataCurrent : dummyDataHistorical}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="crop" />
+                <YAxis label={{ value: "Yield (tons/ha)", angle: -90, position: "insideLeft" }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Bar name="Predicted Yield" dataKey="predictedYield" fill="#8884d8" />
+                <Bar name="Actual Yield" dataKey="actualYield" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
-          <CardFooter className="flex flex-col bg-muted/30 border-t">
-            <p className="text-xs text-muted-foreground mb-2 w-full">
-              {user?.role === "admin" || user?.role === "researcher" 
-                ? "As a researcher, you have access to detailed statistical models and historical comparisons."
-                : "Contact a regional agricultural consultant for assistance with implementing these insights."}
-            </p>
-            <Button variant="outline" size="sm" className="w-full" onClick={handleShare}>
-              <ExternalLink className="h-3.5 w-3.5 mr-1" />
-              Share Results
-            </Button>
-          </CardFooter>
         </Card>
 
-        {/* Contributing factors */}
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader>
-            <CardTitle>Contributing Factors Analysis</CardTitle>
-            <CardDescription>
-              Factors that influence the predicted yield
-            </CardDescription>
+            <CardTitle>Explanatory Factors</CardTitle>
+            <CardDescription>Key factors influencing the prediction</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={explanationFactors}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="impact"
+                >
+                  {explanationFactors.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Yield Trend Over Time</CardTitle>
+            <CardDescription>Growth pattern during the current growing season</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={yieldTrendData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis label={{ value: "Yield (tons/ha)", angle: -90, position: "insideLeft" }} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line type="monotone" dataKey="yield" stroke="#82ca9d" activeDot={{ r: 8 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-8 grid gap-8 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Detailed Factor Analysis</CardTitle>
+            <CardDescription>Explanation of each factor's impact</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] mb-6">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={chartData}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 90, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                  <XAxis type="number" domain={[0, 100]} label={{ value: 'Impact on Yield (%)', position: 'insideBottom', offset: -5 }} />
-                  <YAxis type="category" dataKey="factor" width={80} />
-                  <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
-                  <Legend />
-                  <Bar dataKey="impact" name="Impact on Yield" fill="#82E30D" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <Alert className="mb-4 bg-muted">
-              <AlertTitle className="flex items-center text-sm font-medium">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Explainable AI Insights
-              </AlertTitle>
-              <AlertDescription className="text-xs mt-2">
-                Our AI model identifies key factors that most influence your predicted yield. Focus on optimizing the highest impact factors for best results.
-              </AlertDescription>
-            </Alert>
-
             <div className="space-y-4">
-              <p className="font-medium">Top Factors Impacting Your Yield</p>
-              
-              {sortedImpactFactors.slice(0, 4).map((factor, index) => (
-                <div key={index} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <div className="flex items-center">
-                      <span className="font-medium">{factor.factor}</span>
-                      <span className="text-muted-foreground ml-2">
-                        (Current: {factor.value})
-                      </span>
-                    </div>
-                    <span className={`${
-                      factor.impact >= 85 ? "text-green-600" : 
-                      factor.impact >= 70 ? "text-yellow-600" : "text-red-600"
-                    }`}>
-                      {factor.impact.toFixed(1)}%
+              {explanationFactors.map((factor, index) => (
+                <div key={index} className="border-b pb-3 last:border-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <h4 className="font-medium">{factor.factor}</h4>
+                    <span 
+                      className="px-2 py-1 rounded-md text-xs" 
+                      style={{ backgroundColor: factor.color + '20', color: factor.color }}
+                    >
+                      Impact: {factor.impact}%
                     </span>
                   </div>
-                  <Progress value={factor.impact} className="h-2" />
-                  <p className="text-xs text-muted-foreground">
-                    Optimal range: {factor.optimal}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{factor.explanation}</p>
                 </div>
               ))}
             </div>
-            
-            <Separator className="my-4" />
-            
-            <div>
-              <p className="font-medium mb-3">Recommendations</p>
-              <ul className="space-y-2 text-sm">
-                {sortedImpactFactors[0].impact < 80 && (
-                  <li className="flex items-start">
-                    <div className="mr-2 mt-0.5 h-2 w-2 rounded-full bg-primary" />
-                    <span>Consider adjusting {sortedImpactFactors[0].factor.toLowerCase()} levels to reach the optimal range of {sortedImpactFactors[0].optimal}.</span>
-                  </li>
-                )}
-                {sortedImpactFactors[1].impact < 80 && (
-                  <li className="flex items-start">
-                    <div className="mr-2 mt-0.5 h-2 w-2 rounded-full bg-primary" />
-                    <span>Optimize {sortedImpactFactors[1].factor.toLowerCase()} to improve yield potential.</span>
-                  </li>
-                )}
-                <li className="flex items-start">
-                  <div className="mr-2 mt-0.5 h-2 w-2 rounded-full bg-primary" />
-                  <span>Regular monitoring of soil nutrients is recommended for maintaining optimal growing conditions.</span>
-                </li>
-                <li className="flex items-start">
-                  <div className="mr-2 mt-0.5 h-2 w-2 rounded-full bg-primary" />
-                  <span>Consider soil amendments to improve organic matter content for long-term soil health.</span>
-                </li>
-              </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recommendations</CardTitle>
+            <CardDescription>Based on prediction results</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="border-b pb-3">
+                <h4 className="font-medium">Irrigation Management</h4>
+                <p className="text-sm text-muted-foreground">
+                  Consider increasing irrigation frequency by 15% during the upcoming dry period to 
+                  maintain optimal soil moisture levels for corn development.
+                </p>
+              </div>
+              <div className="border-b pb-3">
+                <h4 className="font-medium">Nutrient Management</h4>
+                <p className="text-sm text-muted-foreground">
+                  Apply additional nitrogen fertilizer (20 kg/ha) at the V8 growth stage to support 
+                  kernel development. This could potentially increase yield by 8-10%.
+                </p>
+              </div>
+              <div>
+                <h4 className="font-medium">Pest Monitoring</h4>
+                <p className="text-sm text-muted-foreground">
+                  Increase vigilance for corn borer activity in the next 2-3 weeks, as conditions 
+                  are favorable for infestation. Early detection can prevent yield losses of up to 15%.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mt-8 flex justify-end gap-4">
+        <Button variant="outline">Export Data</Button>
+        <Button>Generate Full Report</Button>
       </div>
     </div>
   );
